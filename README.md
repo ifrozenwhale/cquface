@@ -3,4 +3,4 @@
 
 API使用restful风格。
 
-前端仓库见xxxx。
+[前端仓库](https://github.com/FrozenWhalePP/cquface-fontend)
