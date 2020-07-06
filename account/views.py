@@ -79,7 +79,3 @@ class UserViewSet(viewsets.ModelViewSet):
             res['status'] = 400
             res['msg'] = 'not login'
             return JsonResponse(res)
-
-
-
-

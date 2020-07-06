@@ -7,3 +7,4 @@ class User(models.Model):
     password = models.CharField(max_length=40)
     email = models.CharField(max_length=40)
     major = models.CharField(max_length=40)
+
