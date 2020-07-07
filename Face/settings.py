@@ -39,7 +39,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'app',
-    'account',
     'corsheaders',
 ]
 CORS_ORIGIN_ALLOW_ALL = True
@@ -132,3 +131,8 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = (
     os.path.join(BASE_DIR, 'static'),
 )
+
+
+LOGIN_URL = 'api/login'
+
+# AUTH_USER_MODEL = 'app.User'

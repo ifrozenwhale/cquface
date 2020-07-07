@@ -1,10 +1,10 @@
 from django.contrib.auth.models import User
 from django.db import models
-
+from django.contrib.auth.models import AbstractUser
 # 用户信息
 class User(models.Model):
     user = models.OneToOneField(User, unique=True, on_delete=models.CASCADE)
-    account = models.CharField(max_length=40, primary_ley=True) # 用户ID
+    account = models.CharField(max_length=40, primary_key=True) # 用户ID
     username = models.CharField(max_length=100) # 用户名
     password = models.CharField(max_length=40)  # 密码
     gender = models.CharField(max_length=10)    # 性别
@@ -17,24 +17,24 @@ class User(models.Model):
 
 # 照片信息
 class Photo(models.Model):
-    photo_id = models.AutoField(max_length=100, primary_key=True)   # 图片ID
+    photo_id = models.AutoField(primary_key=True)   # 图片ID
     account = models.ForeignKey('User', on_delete=models.CASCADE)   # 用户ID
 
     age = models.CharField(max_length=3)    # 年龄
     glasses = models.BooleanField() # 是否戴眼镜
     public = models.BooleanField() # 是否公开
     emotion = models.CharField(max_length=20)   # 情绪
-    date = models.DateTimeField()   # 日期
+    date = models.CharField(max_length=50)   # 日期
     face_shape = models.CharField(max_length=20)    # 脸型
     expression = models.CharField(max_length=20)    # 表情
     base64 = models.CharField(max_length = 100) # base64的txt文件路径
-    gender = models.CharField(max_length = 1)   # 男：M   女：F
+    gender = models.CharField(max_length = 10)   # 男：male   女：famale
     beauty = models.FloatField()  # 颜值
     face_width = models.CharField(max_length=20) # 面宽
     face_height = models.CharField(max_length=20) # 面高
     race = models.CharField(max_length=20)  # 人种
     share_info = models.CharField(max_length = 300)   # 分享评论
-    image_name = models.CHarField(max_length = 100)
+    image_name = models.CharField(max_length = 100)
 
 # 收藏夹
 class Favorites(models.Model):
@@ -49,10 +49,8 @@ class Comments(models.Model):
 
 # 关注列表
 class Follow(models.Model):
-    followed_account = models.ForeignKey('User', on_delete=models.CASCADE)  # 被关注者的用户ID
-    follower_account = models.ForeignKey('User', on_delete=models.CASCADE)  # 关注者的用户ID
-
-
+    followed_account = models.ForeignKey('User', on_delete=models.CASCADE, related_name="fd")  # 被关注者的用户ID
+    follower_account = models.ForeignKey('User', on_delete=models.CASCADE, related_name="fr")  # 关注者的用户ID
 
 
 
