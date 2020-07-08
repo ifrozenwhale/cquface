@@ -440,15 +440,18 @@ class AppViewSet(viewsets.ModelViewSet):
         #     os.getcwd(),
         #     'static/files/base64TXT/head'
         # )
+
         basepath = 'app/static/files/base64TXT/head'
         if not os.path.exists(basepath):  # 如果目录不存在则创建
             os.mkdir(basepath)
         uname = str(uuid.uuid1()) + '.txt'  # 产生唯一的文件名
         # 文件的路径
         baseapath = basepath + os.sep + uname
-        # 写txt文件
-        with open(baseapath, 'w+') as ff:
-            ff.write(head64)
+        if head64 is not None:
+            # 写txt文件
+            with open(baseapath, 'w+') as ff:
+                ff.write(head64)
+
         # 生成一个新的user
         auu = au.objects.create_user(username=account, password=password)
         user = User(
