@@ -93,7 +93,7 @@ class AppViewSet(viewsets.ModelViewSet):
         result["race"] = dict["face_list"][0]["race"]["type"]
         result["face_width"] = dict["face_list"][0]["location"]["width"]
         result["face_height"] = dict["face_list"][0]["location"]["height"]
-
+        result["image_name"] = imageName
         # 打印测试
         for key in result.keys():
             print(key, ":", result[key])
@@ -153,6 +153,7 @@ class AppViewSet(viewsets.ModelViewSet):
 
         return JsonResponse(result)
 
+    # 分享照片
     def share(self, request):
         # account = request.data.get("user_id")
         photo_id = request.data.get("photo_id")
@@ -179,10 +180,9 @@ class AppViewSet(viewsets.ModelViewSet):
         Photo.objects.filter(photo_id=photo_id).update(public = public, share_info = share_info)
         return JsonResponse(res)
 
-
-    def showFans(self, request, user_id):
-        account = user_id
-        print(account)
+    # 返回粉丝信息列表
+    def showFans(self, request, account):
+        account = account
         Follow = models.Follow
         User = models.User
         objs = Follow.objects.filter(followed_account = account)
@@ -202,8 +202,9 @@ class AppViewSet(viewsets.ModelViewSet):
 
         return JsonResponse(fans, safe=False)
 
-    def showFollows(self, request, user_id):
-        account = user_id
+    # 返回关注列表
+    def showFollows(self, request, account):
+        account = account
         Follow = models.Follow
         User = models.User
         objs = Follow.objects.filter(follower_account = account)
@@ -223,8 +224,9 @@ class AppViewSet(viewsets.ModelViewSet):
 
         return JsonResponse(follows, safe=False)
 
-    def showOthersShared(self, request, user_id):
-        account = user_id
+    # 查看他人分享
+    def showOthersShared(self, request, account):
+        account = account
         Photo = models.Photo
         photos = Photo.objects.filter(account = account, public = True)
 
@@ -237,13 +239,13 @@ class AppViewSet(viewsets.ModelViewSet):
             f.close()
 
             dict["base64"] = BASE64
-            dict['report_txt'] = photo.share_info
+            dict['content'] = photo.share_info
             dict['photo_id'] = photo.photo_id
             dict['age'] = photo.age
             dict['gender'] = photo.gender
             dict['expression'] = photo.expression
-            dict['glass'] = photo.glasses
-            dict['score'] = photo.beauty
+            dict['glasses'] = photo.glasses
+            dict['beauty'] = photo.beauty
             dict['emotion'] = photo.emotion
             dict['race'] = photo.race
             dict['face_form'] = photo.face_shape
@@ -253,9 +255,10 @@ class AppViewSet(viewsets.ModelViewSet):
             data.append(dict)
         return JsonResponse(data, safe=False)
 
+    # 关注|取关
     def followAndUnfollow(self, request):
-        account = request.data.get("user_id")
-        account_other = request.data.get("user_id_other")
+        account = request.data.get("account")
+        account_other = request.data.get("account_other")
 
 
         relation = models.Follow.objects.filter(follower_account=account, followed_account=account_other)
@@ -276,6 +279,7 @@ class AppViewSet(viewsets.ModelViewSet):
     qyCode
     """
 
+    # 随机推送
     def get_shares(self, request, share_num):
         # 读取数据库
         shares = Photo.objects.all()
@@ -298,6 +302,7 @@ class AppViewSet(viewsets.ModelViewSet):
             share_data.append(dict)
         return JsonResponse(share_data, safe=False)
 
+    # 得到收藏信息
     def get_favorites(self, request, user_id):
         # 读取数据库
         user = User.objects.get(account=user_id)
@@ -347,6 +352,7 @@ class AppViewSet(viewsets.ModelViewSet):
         dict['signature'] = user.sig
         return JsonResponse(dict)
 
+    # 收藏
     def star(self, request):
         # 读取请求
         user_id = request.data.get('user_id')
