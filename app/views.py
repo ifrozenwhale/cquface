@@ -489,6 +489,7 @@ class AppViewSet(viewsets.ModelViewSet):
             res['status'] = 401
             res['msg'] = '图片不存在'
             return JsonResponse(res)
+
         # 存入数据库
         comment = Comments(comment=comment_text)
         comment.account = user
@@ -582,23 +583,6 @@ class AppViewSet(viewsets.ModelViewSet):
         token = Token.objects.create(user=user)
         res['token'] = token.key
 
-        return JsonResponse(res)
-
-
-    # 安全退出
-    def logout(self, request):
-        res = {'status': 200}
-
-        # getToken = request.META.get("Authorization")
-        # user = User.objects.get(account=account)
-        # user_id = user.user_id
-        # key = Token.objects.get(user_id=user_id).key
-        #
-        # if getToken != key:
-        #     return JsonResponse({'status': 405, 'msg': "token验证失败"})
-
-        # 清除session中的登录信息
-        logout(request)
         return JsonResponse(res)
 
     # 获取我的个人信息
