@@ -3,7 +3,7 @@ import random
 import uuid
 from datetime import datetime
 
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User as au
 from django.http import JsonResponse
 
@@ -508,12 +508,20 @@ class AppViewSet(viewsets.ModelViewSet):
         else:
             res['status'] = 401
             res['msg'] = '用户名或密码错误，请重试'
-        # 删除原有的Token
-        old_token = Token.objects.filter(user=user)
-        old_token.delete()
         # 创建新的Token
         token = Token.objects.create(user=user)
         res['token'] = token.key
+        return JsonResponse(res)
+
+    def logout(self, request):
+        account = request.data.get('account')
+        res = {'status': 200}
+        # 清除session中的登录信息
+        logout(request)
+        # 删除token
+        user = User.objects.get(account=account)
+        old_token = Token.objects.filter(user_id=user.user_id)
+        old_token.delete()
         return JsonResponse(res)
 
     # 获取我的个人信息
@@ -592,3 +600,6 @@ class AppViewSet(viewsets.ModelViewSet):
             cities=city,
         )
         return JsonResponse({'status': 200})
+
+
+

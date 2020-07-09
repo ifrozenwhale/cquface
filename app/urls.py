@@ -5,6 +5,7 @@ from app import views
 urlpatterns = [
     path('add_user', views.AppViewSet.as_view({'post': 'add_one'})),
     path('login', views.AppViewSet.as_view({'post': 'login'})),
+    path('logout', views.AppViewSet.as_view({'post': 'logout'})),
     path('get_my_info', views.AppViewSet.as_view({'post': 'get_my_info'})),
     path('update_my_info', views.AppViewSet.as_view({'post': 'update_my_info'})),
 
