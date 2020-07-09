@@ -18,6 +18,8 @@ class User(models.Model):
     head = models.CharField(max_length=100, null=True)  # 头像的base64的txt文件的路径
 
 
+
+
 # 照片信息
 class Photo(models.Model):
     photo_id = models.AutoField(primary_key=True)  # 图片ID

@@ -40,7 +40,17 @@ INSTALLED_APPS = [
     'rest_framework',
     'app',
     'corsheaders',
+    'rest_framework.authtoken'  # token
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',  # token认证
+    )
+}
+
 CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_CREDENTIALS = True
 MIDDLEWARE = [
@@ -87,7 +97,7 @@ DATABASES = {
         'HOST': '127.0.0.1',
         'PORT': '3306',
         'USER': 'root',
-        'PASSWORD': 'trz000821',
+        'PASSWORD': '123456',
     }
 }
 

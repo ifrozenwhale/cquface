@@ -16,7 +16,7 @@ from app import models, serialize
 
 from rest_framework import viewsets
 
-
+from rest_framework.authtoken.models import Token
 
 # 登录百度api的账号
 from app.models import Photo, User, Favorites, Comments, Follow
@@ -299,6 +299,17 @@ class AppViewSet(viewsets.ModelViewSet):
             dict['report_name'] = user.username
             dict['report_time'] = shares[i].date
             dict['report_text'] = shares[i].share_info
+            dict['comment_num'] = len(Comments.objects.filter(photo_id=shares[i]))
+            dict['favorite_num'] = len(Favorites.objects.filter(photo_id=shares[i]))
+            head_path = user.head
+            with open(head_path, "r") as f:
+                dict['portrait'] = f.read()
+            dict['nickname'] = user.username
+            dict['signature'] = user.sig
+            dict['age'] = user.age
+            dict['gender'] = user.gender
+            dict['expression'] = shares[i].expression
+            dict['emotion'] = shares[i].emotion
             share_data.append(dict)
         return JsonResponse(share_data, safe=False)
 
@@ -317,6 +328,7 @@ class AppViewSet(viewsets.ModelViewSet):
                 dict['report_picture'] = f.read()
             user = User.objects.get(account=photo.account.account)
             dict['photo_id'] = photo.photo_id
+            dict['age'] = photo.age
             dict['report_name'] = user.username
             dict['report_time'] = photo.date
             dict['report_text'] = photo.share_info
@@ -475,6 +487,7 @@ class AppViewSet(viewsets.ModelViewSet):
     # 登录
     def login(self, request):
         # 先获取前台传来的登录信息
+
         account = request.data.get('account')
         password = request.data.get('password')
         res = {'status': 0, 'msg': ''}
@@ -485,12 +498,20 @@ class AppViewSet(viewsets.ModelViewSet):
             login(request, user)
             res['status'] = 200
             res['msg'] = '登陆成功'
-            return JsonResponse(res)
         # 如果登录失败，返回错误提示信息
         else:
             res['status'] = 401
             res['msg'] = '用户名或密码错误，请重试'
-            return JsonResponse(res)
+
+        # 删除原有的Token
+        old_token = Token.objects.filter(user=user)
+        old_token.delete()
+        # 创建新的Token
+        token = Token.objects.create(user=user)
+        res['token'] = token.key
+
+        return JsonResponse(res)
+
 
     # 安全退出
     def logout(self, request):
@@ -541,11 +562,11 @@ class AppViewSet(viewsets.ModelViewSet):
         account = request.data.get('account')  # 获取当前登录用户的账号
         nickname = request.data.get('nickname')  # 获取昵称（用户名）
         signature = request.data.get('signature')  # 获取个性签名
-        gender = request.data.get('gender')  # 获取性别
+        # gender = request.data.get('gender')  # 获取性别
         email = request.data.get('email')  # 获取email
         QQ = request.data.get('QQ')  # 获取qq
         city = request.data.get('city')  # 获取城市
-        age = request.data.get('age')
+        # age = request.data.get('age')
         b64 = request.data.get('portrait')  # 获取头像文件的base64编码
 
         # 接下来将编码写入一个txt文件中
@@ -568,11 +589,11 @@ class AppViewSet(viewsets.ModelViewSet):
             head=baseapath,
             username=nickname,
             sig=signature,
-            gender=gender,
+            # gender=gender,
             email=email,
             qq=QQ,
             cities=city,
-            age=age
+            # age=age
         )
         return JsonResponse({'status': 200})
 
