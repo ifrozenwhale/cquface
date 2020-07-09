@@ -1,6 +1,5 @@
 from django.contrib.auth.models import User
 from django.db import models
-from django.contrib.auth.models import AbstractUser
 
 
 # 用户信息
@@ -16,8 +15,6 @@ class User(models.Model):
     sig = models.CharField(max_length=150, null=True)  # 个性签名
     email = models.CharField(max_length=40)  # 邮箱
     head = models.CharField(max_length=100, null=True)  # 头像的base64的txt文件的路径
-
-
 
 
 # 照片信息

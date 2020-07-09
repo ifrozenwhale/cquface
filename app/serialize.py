@@ -66,3 +66,4 @@ class FollowSerializer(serializers.ModelSerializer):
             'follower_account'
         )
         model = models.Follow
+
