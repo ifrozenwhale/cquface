@@ -5,6 +5,7 @@ from datetime import datetime
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User as au
+from django.core.paginator import Paginator
 from django.http import JsonResponse
 
 from rest_framework import viewsets
@@ -33,7 +34,7 @@ class AppViewSet(viewsets.ModelViewSet):
         account = request.data.get("account")
         imageName = uuid.uuid1()
         # token认证
-        getToken = request.META.get("Authorization")
+        getToken = request.META.get("HTTP_AUTHORIZATION")
         user = User.objects.get(account=account)
         user_id = user.user_id
         key = Token.objects.get(user_id=user_id).key
@@ -100,7 +101,7 @@ class AppViewSet(viewsets.ModelViewSet):
         public = request.data.get("public")
         share_info = request.data.get("content")
         # token认证
-        getToken = request.META.get("Authorization")
+        getToken = request.META.get("HTTP_AUTHORIZATION")
         user = User.objects.get(account=account)
         user_id = user.user_id
         key = Token.objects.get(user_id=user_id).key
@@ -129,7 +130,7 @@ class AppViewSet(viewsets.ModelViewSet):
         User = models.User
         objs = Follow.objects.filter(followed_account = account)
         # token认证
-        getToken = request.META.get("Authorization")
+        getToken = request.META.get("HTTP_AUTHORIZATION")
         user = User.objects.get(account=account)
         user_id = user.user_id
         key = Token.objects.get(user_id=user_id).key
@@ -142,9 +143,11 @@ class AppViewSet(viewsets.ModelViewSet):
             fan["signature"] = User.objects.get(account=obj.follower_account.account).sig
             fan["nickname"] = User.objects.get(account=obj.follower_account.account).username
             headAbsPath = User.objects.get(account=obj.follower_account.account).head
-            f = open(headAbsPath)
-            BASE64 = f.read()
-            f.close()
+            BASE64 = ""
+            if headAbsPath != "":
+                f = open(headAbsPath)
+                BASE64 = f.read()
+                f.close()
             fan["portrait"] = BASE64
             fan["account"] = obj.follower_account.account
             fans.append(fan)
@@ -158,7 +161,7 @@ class AppViewSet(viewsets.ModelViewSet):
         User = models.User
         objs = Follow.objects.filter(follower_account = account)
         # token认证
-        getToken = request.META.get("Authorization")
+        getToken = request.META.get("HTTP_AUTHORIZATION")
         user = User.objects.get(account=account)
         user_id = user.user_id
         key = Token.objects.get(user_id=user_id).key
@@ -171,9 +174,11 @@ class AppViewSet(viewsets.ModelViewSet):
             follow["signature"] = User.objects.get(account = obj.followed_account.account).sig
             follow["nickname"] = User.objects.get(account = obj.followed_account.account).username
             headAbsPath = User.objects.get(account = obj.followed_account.account).head
-            f = open(headAbsPath)
-            BASE64 = f.read()
-            f.close()
+            BASE64 = ""
+            if headAbsPath != "":
+                f = open(headAbsPath)
+                BASE64 = f.read()
+                f.close()
             follow["portrait"] = BASE64
             follow["account"] = obj.followed_account.account
             follows.append(follow)
@@ -216,7 +221,7 @@ class AppViewSet(viewsets.ModelViewSet):
         account = request.data.get("account")
         account_other = request.data.get("account_other")
         # token认证
-        getToken = request.META.get("Authorization")
+        getToken = request.META.get("HTTP_AUTHORIZATION")
         user = User.objects.get(account=account)
         user_id = user.user_id
         key = Token.objects.get(user_id=user_id).key
@@ -265,8 +270,10 @@ class AppViewSet(viewsets.ModelViewSet):
             dict['comment_num'] = len(Comments.objects.filter(photo_id=shares[i]))
             dict['favorite_num'] = len(Favorites.objects.filter(photo_id=shares[i]))
             head_path = user.head
-            with open(head_path, "r") as f:
-                dict['portrait'] = f.read()
+            dict['portrait'] = ""
+            if head_path != "":
+                with open(head_path, "r") as f:
+                    dict['portrait'] = f.read()
             dict['nickname'] = user.username
             dict['signature'] = user.sig
             dict['age'] = user.age
@@ -286,7 +293,7 @@ class AppViewSet(viewsets.ModelViewSet):
         user = User.objects.get(account=user_id)
         favorites = Favorites.objects.filter(account=user)
         # token认证
-        getToken = request.META.get("Authorization")
+        getToken = request.META.get("HTTP_AUTHORIZATION")
         user_id = user.user_id
         key = Token.objects.get(user_id=user_id).key
         if getToken != key:
@@ -313,7 +320,7 @@ class AppViewSet(viewsets.ModelViewSet):
     def get_share_info(self, request, user_id, photo_id):
         account = user_id
         # token认证
-        getToken = request.META.get("Authorization")
+        getToken = request.META.get("HTTP_AUTHORIZATION")
         user = User.objects.get(account=account)
         user_id = user.user_id
         key = Token.objects.get(user_id=user_id).key
@@ -342,8 +349,10 @@ class AppViewSet(viewsets.ModelViewSet):
         dict['face_width'] = photo.face_width
         # 获取用户数据
         head_path = user.head
-        with open(head_path, "r") as f:
-            dict['portrait'] = f.read()
+        dict['portrait'] = ""
+        if head_path != "":
+            with open(head_path, "r") as f:
+                dict['portrait'] = f.read()
         dict['nickname'] = user.username
         dict['signature'] = user.sig
         # 获取评论信息
@@ -352,8 +361,10 @@ class AppViewSet(viewsets.ModelViewSet):
             comment_info = {}
             commenter = comment.account
             head_path = commenter.head
-            with open(head_path, "r") as f:
-                comment_info['portrait'] = f.read()
+            comment_info['portrait'] = ""
+            if head_path != "":
+                with open(head_path, "r") as f:
+                    comment_info['portrait'] = f.read()
             comment_info['nickname'] = commenter.username
             comment_info['comment'] = comment.comment
             comments_info.append(comment_info)
@@ -366,7 +377,7 @@ class AppViewSet(viewsets.ModelViewSet):
         account = request.data.get('user_id')
         photo_id = request.data.get('photo_id')
         # token认证
-        getToken = request.META.get("Authorization")
+        getToken = request.META.get("HTTP_AUTHORIZATION")
         user = User.objects.get(account=account)
         user_id = user.user_id
         key = Token.objects.get(user_id=user_id).key
@@ -409,7 +420,7 @@ class AppViewSet(viewsets.ModelViewSet):
         photo_id = request.data.get('photo_id')
         comment_text = request.data.get('comment_text')
         # token认证
-        getToken = request.META.get("Authorization")
+        getToken = request.META.get("HTTP_AUTHORIZATION")
         user = User.objects.get(account=account)
         user_id = user.user_id
         key = Token.objects.get(user_id=user_id).key
@@ -459,7 +470,8 @@ class AppViewSet(viewsets.ModelViewSet):
         qq = request.data.get('qq')  # 获取qq
         sig = request.data.get('sig')  # 获取个性签名
         email = request.data.get('email')  # 获取邮箱
-        head64 = request.data.get('head')  # 获取头像的base64编码
+        # head64 = request.data.get('head')  # 获取头像的base64编码
+        head64 = ""
         # 写入编码
         basepath = 'app/static/files/base64TXT/head'
         if not os.path.exists(basepath):  # 如果目录不存在则创建
@@ -467,7 +479,7 @@ class AppViewSet(viewsets.ModelViewSet):
         uname = str(uuid.uuid1()) + '.txt'  # 产生唯一的文件名
         # 文件的路径
         baseapath = basepath + os.sep + uname
-        if head64 is not None:
+        if head64 is not None and head64 != "":
             # 写txt文件
             with open(baseapath, 'w+') as ff:
                 ff.write(head64)
@@ -531,7 +543,8 @@ class AppViewSet(viewsets.ModelViewSet):
         me = User.objects.get(account=account)  # 在数据库中查询该用户
         data = dict()  # 存放个人信息用于返回
         # token认证
-        getToken = request.META.get("Authorization")
+        getToken = request.META.get("HTTP_AUTHORIZATION")
+        print(getToken)
         user = User.objects.get(account=account)
         user_id = user.user_id
         key = Token.objects.get(user_id=user_id).key
@@ -546,9 +559,11 @@ class AppViewSet(viewsets.ModelViewSet):
         data['city'] = me.cities
         data['age'] = me.age
         # 获取头像的base64编码
-        with open(me.head, 'r+') as f:
-            portrait = f.read()
-        data['portrait'] = portrait
+        data['portrait'] = ""
+        if me.head != "":
+            with open(me.head, 'r+') as f:
+                portrait = f.read()
+            data['portrait'] = portrait
         # 查询所有关注了该用户的记录并统计数量
         fans = Follow.objects.filter(followed_account=me)
         fan_num = len(fans)
@@ -572,27 +587,17 @@ class AppViewSet(viewsets.ModelViewSet):
         email = request.data.get('email')  # 获取email
         QQ = request.data.get('QQ')  # 获取qq
         city = request.data.get('city')  # 获取城市
-        b64 = request.data.get('portrait')  # 获取头像文件的base64编码
+
         # token认证
-        getToken = request.META.get("Authorization")
+        getToken = request.META.get("HTTP_AUTHORIZATION")
         user = User.objects.get(account=account)
         user_id = user.user_id
         key = Token.objects.get(user_id=user_id).key
         if getToken != key:
             return JsonResponse({'status': 405, 'msg': "token验证失败"})
-        # 写入数据库
-        basepath = 'app/static/files/base64TXT/head'
-        if not os.path.exists(basepath):  # 如果目录不存在则创建
-            os.mkdir(basepath)
-        uname = str(uuid.uuid1()) + '.txt'  # 产生唯一的文件名
-        # 文件的绝对路径
-        baseapath = basepath + os.sep + uname
-        # 写txt文件
-        with open(baseapath, 'w+') as ff:
-            ff.write(b64)
+
         # 更新该用户的信息
         User.objects.filter(account=account).update(
-            head=baseapath,
             username=nickname,
             sig=signature,
             email=email,
@@ -602,4 +607,103 @@ class AppViewSet(viewsets.ModelViewSet):
         return JsonResponse({'status': 200})
 
 
+
+    def get_my_portrait(self, request, account):
+        me = User.objects.get(account=account)  # 在数据库中查询该用户
+        data = dict()  # 存放个人信息用于返
+        # 获取头像的base64编码
+
+        # 获取头像的base64编码
+        print(me.head)
+        if me.head is not None and me.head != '':
+            with open(me.head, 'r+') as f:
+                portrait = f.read()
+        else:
+            portrait = None
+        data['portrait'] = portrait
+        return JsonResponse(data)
+
+    def update_my_portrait(self, request):
+        account = request.data.get("account")
+        print(account)
+        b64 = request.data.get('portrait')  # 获取头像文件的base64编码
+        basepath = self.update_head_help(b64)
+        # 更新该用户的信息
+        print(b64)
+        User.objects.filter(account=account).update(
+            head=basepath
+        )
+        res = {"status": 200}
+        return JsonResponse(res)
+
+
+    def update_head_help(self, b64):
+        # b64 = request.data.get('portrait')  # 获取头像文件的base64编码
+        basepath = 'app/static/files/base64TXT/head'
+        if not os.path.exists(basepath):  # 如果目录不存在则创建
+            os.mkdir(basepath)
+        uname = str(uuid.uuid1()) + '.txt'  # 产生唯一的文件名
+        # 文件的绝对路径
+        baseapath = basepath + os.sep + uname
+        # 写txt文件
+        with open(baseapath, 'w+') as ff:
+            ff.write(b64)
+        return baseapath
+
+    def get_shared_by_account(self, request, account):
+        share_data = []
+        photo_list = Photo.objects.filter(account_id=account).order_by('-date')
+        single_num = int(request.GET.get("each"))
+        page_num = int(request.GET.get("page"))
+        paginator = Paginator(photo_list, single_num)
+        photos = paginator.page(page_num)
+
+
+        # 获取数据
+        for i in range(single_num):
+            if i >= len(photos):
+                break
+            dict = {}
+            photo_path = photos[i].base64
+            with open(photo_path, "r+") as f:
+                dict['report_picture'] = f.read()
+            user = User.objects.get(account=photos[i].account.account)
+            dict['photo_id'] = photos[i].photo_id
+            dict['report_name'] = user.username
+            dict['report_time'] = photos[i].date
+            dict['report_text'] = photos[i].share_info
+            dict['total_num'] = paginator.num_pages
+
+            share_data.append(dict)
+        return JsonResponse(share_data, safe=False)
+
+
+    def delete_photo(self, request, photo_id):
+        Photo.objects.filter(photo_id=photo_id).delete()
+        res = dict()
+        res['status'] = 200
+        res['msg'] = 'ok'
+        return JsonResponse(res)
+
+
+    def get_fan_follow_collect(self, request, account):
+        me = User.objects.get(account=account)  # 在数据库中查询该用户
+        data = dict()  # 存放个人信息用于返回
+
+        # 查询所有关注了该用户的记录并统计数量
+        fans = Follow.objects.filter(followed_account=me)
+        fan_num = len(fans)
+        data['fan_num'] = fan_num
+
+        # 查询该用户所有的关注记录并统计数量
+        follows = Follow.objects.filter(follower_account=me)
+        follow_num = len(follows)
+        data['follow_num'] = follow_num
+
+        # 查询该用户所有的收藏并统计数量
+        favs = Favorites.objects.filter(account=me)
+        collect_num = len(favs)
+        data['collect_num'] = collect_num
+
+        return JsonResponse(data)  # 响应到前台
 
