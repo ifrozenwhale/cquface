@@ -18,9 +18,9 @@ urlpatterns = [
 
     path('recognition', views.AppViewSet.as_view({'post': 'recognition'})),
     path('share', views.AppViewSet.as_view({'post': 'share'})),
-    path('showFollows/<str:user_id>', views.AppViewSet.as_view({'get': 'showFollows'})),
-    path('showFans/<str:user_id>', views.AppViewSet.as_view({'get': 'showFans'})),
-    path('showOthersShared/<str:user_id>', views.AppViewSet.as_view({'get': 'showOthersShared'})),
+    path('showFollows/<str:account>', views.AppViewSet.as_view({'get': 'showFollows'})),
+    path('showFans/<str:account>', views.AppViewSet.as_view({'get': 'showFans'})),
+    path('showOthersShared/<str:account>', views.AppViewSet.as_view({'get': 'showOthersShared'})),
     path('followAndUnfollow', views.AppViewSet.as_view({'post': 'followAndUnfollow'}))
 
 ]

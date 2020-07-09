@@ -198,6 +198,7 @@ class AppViewSet(viewsets.ModelViewSet):
             BASE64 = f.read()
             f.close()
             fan["portrait"] = BASE64
+            fan["account"] = obj.follower_account.account
             fans.append(fan)
 
         return JsonResponse(fans, safe=False)
@@ -220,8 +221,8 @@ class AppViewSet(viewsets.ModelViewSet):
             BASE64 = f.read()
             f.close()
             follow["portrait"] = BASE64
+            follow["account"] = obj.followed_account.account
             follows.append(follow)
-
         return JsonResponse(follows, safe=False)
 
     # 查看他人分享
