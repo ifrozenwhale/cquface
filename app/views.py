@@ -36,13 +36,22 @@ class AppViewSet(viewsets.ModelViewSet):
 
     # 人脸识别功能模块
     def recognition(self, request):
+
         BASE64 = request.data.get("image")
         imageType = "BASE64"
         account = request.data.get("account")
         imageName = uuid.uuid1()
 
+        getToken = request.META.get("Authorization")
+        user = User.objects.get(account = account)
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
 
-        #
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+
+
+
         # # 根据不同的imageType得到BASE64
         # if imageType.equals("FILE"):
         #
@@ -155,13 +164,23 @@ class AppViewSet(viewsets.ModelViewSet):
 
     # 分享照片
     def share(self, request):
-        # account = request.data.get("user_id")
+        account = request.data.get("user_id")
         photo_id = request.data.get("photo_id")
         public = request.data.get("public")
         share_info = request.data.get("content")
 
+        getToken = request.META.get("Authorization")
+        user = User.objects.get(account=account)
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+
         res = {'status': 200, 'msg': ''}
         Photo = models.Photo
+
+
         # 失败：返回错误码
         try:
             photo = Photo.objects.filter(photo_id=photo_id)
@@ -187,6 +206,14 @@ class AppViewSet(viewsets.ModelViewSet):
         User = models.User
         objs = Follow.objects.filter(followed_account = account)
 
+        getToken = request.META.get("Authorization")
+        user = User.objects.get(account=account)
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+
         # 粉丝列表
         fans = []
         for obj in objs:
@@ -210,6 +237,14 @@ class AppViewSet(viewsets.ModelViewSet):
         User = models.User
         objs = Follow.objects.filter(follower_account = account)
 
+        getToken = request.META.get("Authorization")
+        user = User.objects.get(account=account)
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+
         # 关注列表
         follows = []
         for obj in objs:
@@ -226,6 +261,7 @@ class AppViewSet(viewsets.ModelViewSet):
         return JsonResponse(follows, safe=False)
 
     # 查看他人分享
+    # 别人主页不用登录token
     def showOthersShared(self, request, account):
         account = account
         Photo = models.Photo
@@ -261,6 +297,13 @@ class AppViewSet(viewsets.ModelViewSet):
         account = request.data.get("account")
         account_other = request.data.get("account_other")
 
+        getToken = request.META.get("Authorization")
+        user = User.objects.get(account=account)
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
 
         relation = models.Follow.objects.filter(follower_account=account, followed_account=account_other)
         Follow = models.Follow()
@@ -319,6 +362,14 @@ class AppViewSet(viewsets.ModelViewSet):
         # 读取数据库
         user = User.objects.get(account=user_id)
         favorites = Favorites.objects.filter(account=user)
+
+        getToken = request.META.get("Authorization")
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+
         # 获取数据
         favorites_data = []
         for i in favorites:
@@ -338,6 +389,7 @@ class AppViewSet(viewsets.ModelViewSet):
         return JsonResponse(favorites_data, safe=False)
 
     # 得到详情页
+    # 不用登录token
     def get_share_info(self, request, user_id, photo_id):
         # 读取数据库
         user = User.objects.get(account=user_id)
@@ -369,8 +421,17 @@ class AppViewSet(viewsets.ModelViewSet):
     # 收藏
     def star(self, request):
         # 读取请求
-        user_id = request.data.get('user_id')
+        account = request.data.get('user_id')
         photo_id = request.data.get('photo_id')
+
+        getToken = request.META.get("Authorization")
+        user = User.objects.get(account=account)
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+
         # 查询数据库
         res = {'status': 0, 'msg': ''}
         try:
@@ -398,13 +459,22 @@ class AppViewSet(viewsets.ModelViewSet):
 
     def comment(self, request):
         # 读取请求
-        user_id = request.data.get('user_id')
+        account = request.data.get('user_id')
         photo_id = request.data.get('photo_id')
         comment_text = request.data.get('comment_text')
+
+        getToken = request.META.get("Authorization")
+        user = User.objects.get(account=account)
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+
         # 查询数据库
         res = {'status': 0, 'msg': ''}
         try:
-            user = User.objects.get(account=user_id)
+            user = User.objects.get(account=account)
         except User.DoesNotExist:
             user = None
         if not user:
@@ -518,6 +588,15 @@ class AppViewSet(viewsets.ModelViewSet):
     # 安全退出
     def logout(self, request):
         res = {'status': 200}
+
+        # getToken = request.META.get("Authorization")
+        # user = User.objects.get(account=account)
+        # user_id = user.user_id
+        # key = Token.objects.get(user_id=user_id).key
+        #
+        # if getToken != key:
+        #     return JsonResponse({'status': 405, 'msg': "token验证失败"})
+
         # 清除session中的登录信息
         logout(request)
         return JsonResponse(res)
@@ -527,6 +606,15 @@ class AppViewSet(viewsets.ModelViewSet):
         account = request.data.get('account')  # 首先获取当前登录用户的账号
         me = User.objects.get(account=account)  # 在数据库中查询该用户
         data = dict()  # 存放个人信息用于返回
+
+        getToken = request.META.get("Authorization")
+        user = User.objects.get(account=account)
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+
 
         data['nickname'] = me.username
         data['signature'] = me.sig
@@ -570,6 +658,15 @@ class AppViewSet(viewsets.ModelViewSet):
         city = request.data.get('city')  # 获取城市
         # age = request.data.get('age')
         b64 = request.data.get('portrait')  # 获取头像文件的base64编码
+
+        getToken = request.META.get("Authorization")
+        user = User.objects.get(account=account)
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+
 
         # 接下来将编码写入一个txt文件中
         # basepath = os.path.join(            # 文件保存目录
