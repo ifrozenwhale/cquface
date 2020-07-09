@@ -96,7 +96,7 @@ class AppViewSet(viewsets.ModelViewSet):
     # 分享照片
     def share(self, request):
         # 读取请求
-        account = request.data.get("user_id")
+        account = request.data.get("account")
         photo_id = request.data.get("photo_id")
         public = request.data.get("public")
         share_info = request.data.get("content")
@@ -276,10 +276,11 @@ class AppViewSet(viewsets.ModelViewSet):
                     dict['portrait'] = f.read()
             dict['nickname'] = user.username
             dict['signature'] = user.sig
-            dict['age'] = user.age
-            dict['gender'] = user.gender
+            dict['age'] = shares[i].age
+            dict['gender'] = shares[i].gender
             dict['expression'] = shares[i].expression
             dict['emotion'] = shares[i].emotion
+            dict['score'] = shares[i].beauty
             if len(Favorites.objects.filter(account=user_now, photo_id=shares[i])) != 0:
                 dict['is_favorites'] = True
             else:
