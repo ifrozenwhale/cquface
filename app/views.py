@@ -30,7 +30,6 @@ class AppViewSet(viewsets.ModelViewSet):
     def recognition(self, request):
         # 读取请求
         BASE64 = request.data.get("image")
-        imageType = "BASE64"
         account = request.data.get("account")
         imageName = uuid.uuid1()
         # token认证
@@ -311,10 +310,17 @@ class AppViewSet(viewsets.ModelViewSet):
         return JsonResponse(favorites_data, safe=False)
 
     # 得到详情页
-    # 不用登录token
     def get_share_info(self, request, user_id, photo_id):
+        account = user_id
+        # token认证
+        getToken = request.META.get("Authorization")
+        user = User.objects.get(account=account)
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
         # 读取数据库
-        user = User.objects.get(account=user_id)
+        user = User.objects.get(account=account)
         photo = Photo.objects.get(photo_id=photo_id)
         # 获取数据
         dict = {}
