@@ -281,6 +281,7 @@ class AppViewSet(viewsets.ModelViewSet):
             dict['expression'] = shares[i].expression
             dict['emotion'] = shares[i].emotion
             dict['score'] = shares[i].beauty
+            dict['user_id'] = user.user_id
             if len(Favorites.objects.filter(account=user_now, photo_id=shares[i])) != 0:
                 dict['is_favorites'] = True
             else:
@@ -317,18 +318,12 @@ class AppViewSet(viewsets.ModelViewSet):
             favorites_data.append(dict)
         return JsonResponse(favorites_data, safe=False)
 
-    # 得到详情页
-    def get_share_info(self, request, user_id, photo_id):
-        account = user_id
-        # token认证
-        getToken = request.META.get("HTTP_AUTHORIZATION")
-        user = User.objects.get(account=account)
-        user_id = user.user_id
-        key = Token.objects.get(user_id=user_id).key
-        if getToken != key:
-            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+        # 得到详情页
+        # 不用登录token
+
+    def get_share_info(self, request, user_id, photo_id, user_now):
         # 读取数据库
-        user = User.objects.get(account=account)
+        user = User.objects.get(user_id=user_id)
         photo = Photo.objects.get(photo_id=photo_id)
         # 获取数据
         dict = {}
@@ -348,9 +343,14 @@ class AppViewSet(viewsets.ModelViewSet):
         dict['face_form'] = photo.face_shape
         dict['face_height'] = photo.face_height
         dict['face_width'] = photo.face_width
+        dict['comment_num'] = len(Comments.objects.filter(photo_id=photo_id))
+        dict['favorite_num'] = len(Favorites.objects.filter(photo_id=photo_id))
+        if len(Favorites.objects.filter(account=user_now, photo_id=photo_id)) != 0:
+            dict['is_favorites'] = True
+        else:
+            dict['is_favorites'] = False
         # 获取用户数据
         head_path = user.head
-        dict['portrait'] = ""
         if head_path != "":
             with open(head_path, "r") as f:
                 dict['portrait'] = f.read()
@@ -362,20 +362,24 @@ class AppViewSet(viewsets.ModelViewSet):
             comment_info = {}
             commenter = comment.account
             head_path = commenter.head
-            comment_info['portrait'] = ""
             if head_path != "":
                 with open(head_path, "r") as f:
                     comment_info['portrait'] = f.read()
-            comment_info['nickname'] = commenter.username
-            comment_info['comment'] = comment.comment
+            comment_info['name'] = commenter.username
+            comment_info['cont'] = comment.comment
+            comment_info[
+                'avator'] = 'https://avataaars.io/?avatarStyle=Transparent&topType=ShortHairShortCurly&accessoriesType=Prescription02&hairColor=Black&facialHairType=Blank&clotheType=Hoodie&clotheColor=White&eyeType=Default&eyebrowType=DefaultNatural&mouthType=Default&skinColor=Light'
             comments_info.append(comment_info)
         dict['comments_info'] = comments_info
         return JsonResponse(dict)
 
+
+
+
     # 收藏|取消收藏
     def star(self, request):
         # 读取请求
-        account = request.data.get('user_id')
+        account = request.data.get('account')
         photo_id = request.data.get('photo_id')
         # token认证
         getToken = request.META.get("HTTP_AUTHORIZATION")
@@ -387,7 +391,7 @@ class AppViewSet(viewsets.ModelViewSet):
         # 查询数据库
         res = {'status': 0, 'msg': ''}
         try:
-            user = User.objects.get(account=user_id)
+            user = User.objects.get(account=account)
         except User.DoesNotExist:
             user = None
         if not user:
@@ -403,9 +407,9 @@ class AppViewSet(viewsets.ModelViewSet):
             res['msg'] = '图片不存在'
             return JsonResponse(res)
         # 查询是否收藏
-        if len(Favorites.models.filter(account=user, photo_id=photo)) != 0:
+        if len(Favorites.objects.filter(account=user, photo_id=photo)) != 0:
             # 取消收藏
-            Favorites.models.filter(account=user, photo_id=photo).delete()
+            Favorites.objects.filter(account=user, photo_id=photo).delete()
         else:
             # 收藏并存入数据库
             favorite = Favorites()
@@ -474,16 +478,16 @@ class AppViewSet(viewsets.ModelViewSet):
         # head64 = request.data.get('head')  # 获取头像的base64编码
         head64 = ""
         # 写入编码
-        basepath = 'app/static/files/base64TXT/head'
-        if not os.path.exists(basepath):  # 如果目录不存在则创建
-            os.mkdir(basepath)
-        uname = str(uuid.uuid1()) + '.txt'  # 产生唯一的文件名
-        # 文件的路径
-        baseapath = basepath + os.sep + uname
-        if head64 is not None and head64 != "":
-            # 写txt文件
-            with open(baseapath, 'w+') as ff:
-                ff.write(head64)
+        # basepath = 'app/static/files/base64TXT/head'
+        # if not os.path.exists(basepath):  # 如果目录不存在则创建
+        #     os.mkdir(basepath)
+        # uname = str(uuid.uuid1()) + '.txt'  # 产生唯一的文件名
+        # # 文件的路径
+        # baseapath = basepath + os.sep + uname
+        # if head64 is not None and head64 != "":
+        #     # 写txt文件
+        #     with open(baseapath, 'w+') as ff:
+        #         ff.write(head64)
         # 生成一个新的user
         auu = au.objects.create_user(username=account, password=password)
         user = User(
@@ -497,7 +501,6 @@ class AppViewSet(viewsets.ModelViewSet):
             qq=qq,
             sig=sig,
             email=email,
-            head=baseapath
         )
         # 将新的user保存到User表中
         user.save()
