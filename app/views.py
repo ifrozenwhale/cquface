@@ -333,6 +333,7 @@ class AppViewSet(viewsets.ModelViewSet):
             dict['report_name'] = user.username
             dict['report_time'] = photo.date
             dict['report_text'] = photo.share_info
+            dict['account'] = photo.account.account
             favorites_data.append(dict)
         return JsonResponse(favorites_data, safe=False)
 

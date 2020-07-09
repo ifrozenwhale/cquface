@@ -22,5 +22,4 @@ urlpatterns = [
     path('showFans/<str:account>', views.AppViewSet.as_view({'get': 'showFans'})),
     path('showOthersShared/<str:account>', views.AppViewSet.as_view({'get': 'showOthersShared'})),
     path('followAndUnfollow', views.AppViewSet.as_view({'post': 'followAndUnfollow'}))
-
 ]
