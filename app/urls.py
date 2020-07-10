@@ -21,6 +21,7 @@ urlpatterns = [
     path('shares/account/<str:account>', views.AppViewSet.as_view({'get': 'get_shared_by_account'})),
     path('share/photo/<str:photo_id>', views.AppViewSet.as_view({'post': 'delete_photo'})), #
 
+
     path('recognition', views.AppViewSet.as_view({'post': 'recognition'})),
     path('share', views.AppViewSet.as_view({'post': 'share'})),
     path('showFollows/<str:account>', views.AppViewSet.as_view({'get': 'showFollows'})),
@@ -29,4 +30,6 @@ urlpatterns = [
     path('followAndUnfollow', views.AppViewSet.as_view({'post': 'followAndUnfollow'})),
 
     path('fanFollowCollect/<str:account>', views.AppViewSet.as_view({'get': 'get_fan_follow_collect'})), #
+
+    path('get_user_id/<str:account>', views.AppViewSet.as_view({'get': 'get_user_id'})),
 ]

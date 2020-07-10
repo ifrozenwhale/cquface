@@ -222,9 +222,16 @@ class AppViewSet(viewsets.ModelViewSet):
         account_other = request.data.get("account_other")
         # token认证
         getToken = request.META.get("HTTP_AUTHORIZATION")
-        user = User.objects.get(account=account)
-        user_id = user.user_id
-        key = Token.objects.get(user_id=user_id).key
+        try:
+            user = User.objects.get(account=account)
+            user_id = user.user_id
+        except User.DoesNotExist:
+            user = None
+            user_id = "-1"
+        try:
+            key = Token.objects.get(user_id=user_id).key
+        except Token.DoesNotExist:
+            key = ""
         if getToken != key:
             return JsonResponse({'status': 405, 'msg': "token验证失败"})
         # 查询数据库
@@ -328,7 +335,6 @@ class AppViewSet(viewsets.ModelViewSet):
 
     # 得到详情页
     # 不用登录token
-
     def get_share_info(self, request, user_id, photo_id, user_now):
         # 读取数据库
         user = User.objects.get(user_id=user_id)
@@ -587,13 +593,17 @@ class AppViewSet(viewsets.ModelViewSet):
         try:
             user = User.objects.get(account=account_login)  # 如果登录
             user_login_id = user.user_id
-        except:
+        except User.DoesNotExist:
+            user_login_id = "-1"
             user = None
         if user is None:  # 如果查询到空
             login = False  # 表示没有登录
         # 此页面的用户
 
-        key = Token.objects.get(user_id=user_login_id).key
+        try:
+            key = Token.objects.get(user_id=user_login_id).key
+        except Token.DoesNotExist:
+            key = ""
         if getToken != key:
             login = False  # 表示不合法登录
 
@@ -649,7 +659,7 @@ class AppViewSet(viewsets.ModelViewSet):
         data['age'] = me.age
         # 获取头像的base64编码
         data['portrait'] = ""
-        if me.head != "":
+        if me.head != "" and me.head is not None:
             with open(me.head, 'r+') as f:
                 portrait = f.read()
             data['portrait'] = portrait
@@ -813,6 +823,7 @@ class AppViewSet(viewsets.ModelViewSet):
                 dict['report_picture'] = f.read()
             user = User.objects.get(account=photos[i].account.account)
             dict['photo_id'] = photos[i].photo_id
+
             dict['report_name'] = user.username
             dict['report_time'] = photos[i].date
             dict['report_text'] = photos[i].share_info
@@ -878,3 +889,6 @@ class AppViewSet(viewsets.ModelViewSet):
         data['collect_num'] = collect_num
 
         return JsonResponse(data)  # 响应到前台
+
+    def get_user_id(self, request, account):
+        return JsonResponse({'user_id': User.objects.get(account=account).user_id})
