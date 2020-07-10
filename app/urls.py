@@ -24,12 +24,12 @@ urlpatterns = [
 
     path('recognition', views.AppViewSet.as_view({'post': 'recognition'})),
     path('share', views.AppViewSet.as_view({'post': 'share'})),
-    path('showFollows/<str:account>', views.AppViewSet.as_view({'get': 'showFollows'})),
-    path('showFans/<str:account>', views.AppViewSet.as_view({'get': 'showFans'})),
-    path('showOthersShared/<str:account>', views.AppViewSet.as_view({'get': 'showOthersShared'})),
-    path('followAndUnfollow', views.AppViewSet.as_view({'post': 'followAndUnfollow'})),
+    path('show_follows/<str:account>', views.AppViewSet.as_view({'get': 'show_follows'})),
+    path('show_fans/<str:account>', views.AppViewSet.as_view({'get': 'show_fans'})),
+    path('show_others_shared/<str:account>', views.AppViewSet.as_view({'get': 'show_others_shared'})),
+    path('follow_and_unfollow', views.AppViewSet.as_view({'post': 'follow_and_unfollow'})),
 
-    path('fanFollowCollect/<str:account>', views.AppViewSet.as_view({'get': 'get_fan_follow_collect'})), #
+    path('fan_follow_collect/<str:account>', views.AppViewSet.as_view({'get': 'get_fan_follow_collect'})), #
 
     path('get_user_id/<str:account>', views.AppViewSet.as_view({'get': 'get_user_id'})),
 ]
