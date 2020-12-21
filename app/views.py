@@ -1,4 +1,3 @@
-import base64
 import os
 import random
 import uuid
@@ -6,29 +5,23 @@ from datetime import datetime
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User as au
-
-from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse, HttpResponse
-from django.shortcuts import render
-from aip import AipFace
-
-from app import models, serialize
+from django.core.paginator import Paginator
+from django.http import JsonResponse
 
 from rest_framework import viewsets
-
 from rest_framework.authtoken.models import Token
 
-# 登录百度api的账号
+from app import models, serialize
 from app.models import Photo, User, Favorites, Comments, Follow
 
+from aip import AipFace
+
+# 登录百度api的账号
 APP_ID = '20710958'
 API_KEY = 'l3lZkbn9qtIihUcnLZT1XYO3'
 SECRET_KEY = '6ouePthZFFPAD9ctBuVHHlHilKkaHNcg'
 
 client = AipFace(APP_ID, API_KEY, SECRET_KEY)
-
-# Create your views here.
-
 
 
 class AppViewSet(viewsets.ModelViewSet):
@@ -36,48 +29,30 @@ class AppViewSet(viewsets.ModelViewSet):
 
     # 人脸识别功能模块
     def recognition(self, request):
+        # 读取请求
         BASE64 = request.data.get("image")
-        imageType = "BASE64"
         account = request.data.get("account")
         imageName = uuid.uuid1()
-
-
-        #
-        # # 根据不同的imageType得到BASE64
-        # if imageType.equals("FILE"):
-        #
-        #     # 写入本地文件夹
-        #     imageAbsPath = "/static/files/images/local" + os.sep + str(imageName)
-        #     try:
-        #         with open(imageAbsPath, "wb+") as fp:
-        #             for chunk in image.chunk():
-        #                 fp.write(chunk)
-        #     except:
-        #         return HttpResponse("人脸识别功能模块失败")
-        #
-        #     # 转成base64
-        #     with open(imageAbsPath, 'rb') as f:
-        #         base64_data = base64.b64encode(f.read())
-        #         BASE64 = base64_data.decode()
-        # else:
-        # BASE64 = image
-
+        # token认证
+        getToken = request.META.get("HTTP_AUTHORIZATION")
+        user = User.objects.get(account=account)
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
         # 将BASE64写入本地文件夹
         base64LocalAbsPath = "app/static/files/base64TXT/local" + os.sep + str(imageName) + ".txt"
         file = open(base64LocalAbsPath, 'w')
         file.write(BASE64)
         file.close()
-
         # 配置识别要求信息
         options = {}
         options["face_field"] = "age,beauty,expression,gender,face_shape,glasses,eye_status,emotion,race"
         options["max_face_num"] = 1
         options["face_type"] = "LIVE"
         options["liveness_control"] = "LOW"
-
         # 进行图像识别
         dict = client.detect(BASE64, "BASE64", options)['result']
-
         # 提取信息
         result = {}
         result["age"] = dict["face_list"][0]["age"]
@@ -85,7 +60,7 @@ class AppViewSet(viewsets.ModelViewSet):
         result["expression"] = dict["face_list"][0]["expression"]["type"]
         result["gender"] = dict["face_list"][0]["gender"]["type"]
         result["face_shape"] = dict["face_list"][0]["face_shape"]["type"]
-        if dict["face_list"][0]["glasses"]["type"]=='none':
+        if dict["face_list"][0]["glasses"]["type"] == 'none':
             result["glasses"] = False
         else:
             result["glasses"] = True
@@ -94,27 +69,9 @@ class AppViewSet(viewsets.ModelViewSet):
         result["face_width"] = dict["face_list"][0]["location"]["width"]
         result["face_height"] = dict["face_list"][0]["location"]["height"]
         result["image_name"] = imageName
-        # 打印测试
-        for key in result.keys():
-            print(key, ":", result[key])
+        # 存入数据库
         user = User.objects.get(account=account)
-
-        # 将识别信息写入数据库
-        # Photo = models.Photo()
-        # Photo.age = result["age"]
-        # Photo.beauty = result["beauty"]
-        # Photo.expression = result["expression"]
-        # Photo.gender = result["gender"]
-        # Photo.face_shape = result["face_shape"]
-        # Photo.glasses = result["glasses"]
-        # Photo.emotion = result["emotion"]
-        # Photo.race = result["race"]
-        # Photo.face_height = result["face_height"]
-        # Photo.face_width = result["face_width"]
-        # Photo.image_name = imageName
-
         Photo = models.Photo()
-
         Photo.age = result["age"]
         Photo.beauty = result["beauty"]
         Photo.expression = result["expression"]
@@ -127,42 +84,32 @@ class AppViewSet(viewsets.ModelViewSet):
         Photo.face_width = result["face_width"]
         Photo.image_name = imageName
         Photo.public = True
-
-        # Photo.save()
-
-        # 反过来将数据库中生成的photo_id提取出来写进result
-        # p = Photo.objects.get()
-
-
-
-
-        # 将其他信息写入数据库
         Photo.base64 = base64LocalAbsPath
-
         Photo.date = str(datetime.now())
-        # user = User.objects.get(account=account)
         Photo.account = user
-
-
-        # Photo.account_id = user.user_id
-
         Photo.save()
-
+        #  得到数据库生成的图片id
         photo_id = Photo.photo_id
         result["photo_id"] = photo_id
-
         return JsonResponse(result)
 
     # 分享照片
     def share(self, request):
-        # account = request.data.get("user_id")
+        # 读取请求
+        account = request.data.get("account")
         photo_id = request.data.get("photo_id")
         public = request.data.get("public")
         share_info = request.data.get("content")
-
+        # token认证
+        getToken = request.META.get("HTTP_AUTHORIZATION")
+        user = User.objects.get(account=account)
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
         res = {'status': 200, 'msg': ''}
+        # 图片查找失败：返回错误码
         Photo = models.Photo
-        # 失败：返回错误码
         try:
             photo = Photo.objects.filter(photo_id=photo_id)
         except User.DoesNotExist:
@@ -171,66 +118,79 @@ class AppViewSet(viewsets.ModelViewSet):
             res['status'] = 401
             res['msg'] = '照片不存在'
             return JsonResponse(res)
-        # if len(Photo.objects.get(photo_id = photo_id)) == 0:
-        #     res['status'] = 404
-        #     res['msg'] = "照片不存在"
-        #     return JsonResponse(res)
-
         # 成功：将数据写进数据库
-        Photo.objects.filter(photo_id=photo_id).update(public = public, share_info = share_info)
+        Photo.objects.filter(photo_id=photo_id).update(public=public, share_info=share_info)
         return JsonResponse(res)
 
     # 返回粉丝信息列表
-    def showFans(self, request, account):
+    def show_fans(self, request, account):
+        # 读取请求
         account = account
         Follow = models.Follow
         User = models.User
-        objs = Follow.objects.filter(followed_account = account)
-
-        # 粉丝列表
+        objs = Follow.objects.filter(followed_account=account)
+        # token认证
+        getToken = request.META.get("HTTP_AUTHORIZATION")
+        user = User.objects.get(account=account)
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+        # 返回粉丝列表
         fans = []
         for obj in objs:
             fan = {}
-            fan["signature"] = User.objects.get(account = obj.follower_account.account).sig
-            fan["nickname"] = User.objects.get(account = obj.follower_account.account).username
-            headAbsPath = User.objects.get(account = obj.follower_account.account).head
-            f = open(headAbsPath)
-            BASE64 = f.read()
-            f.close()
+            fan["signature"] = User.objects.get(account=obj.follower_account.account).sig
+            fan["nickname"] = User.objects.get(account=obj.follower_account.account).username
+            headAbsPath = User.objects.get(account=obj.follower_account.account).head
+            BASE64 = ""
+            if headAbsPath != "":
+                f = open(headAbsPath)
+                BASE64 = f.read()
+                f.close()
             fan["portrait"] = BASE64
             fan["account"] = obj.follower_account.account
             fans.append(fan)
-
         return JsonResponse(fans, safe=False)
 
     # 返回关注列表
-    def showFollows(self, request, account):
+    def show_follows(self, request, account):
+        # 读取请求
         account = account
         Follow = models.Follow
         User = models.User
-        objs = Follow.objects.filter(follower_account = account)
-
+        objs = Follow.objects.filter(follower_account=account)
+        # token认证
+        getToken = request.META.get("HTTP_AUTHORIZATION")
+        user = User.objects.get(account=account)
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
         # 关注列表
         follows = []
         for obj in objs:
             follow = {}
-            follow["signature"] = User.objects.get(account = obj.followed_account.account).sig
-            follow["nickname"] = User.objects.get(account = obj.followed_account.account).username
-            headAbsPath = User.objects.get(account = obj.followed_account.account).head
-            f = open(headAbsPath)
-            BASE64 = f.read()
-            f.close()
+            follow["signature"] = User.objects.get(account=obj.followed_account.account).sig
+            follow["nickname"] = User.objects.get(account=obj.followed_account.account).username
+            headAbsPath = User.objects.get(account=obj.followed_account.account).head
+            BASE64 = ""
+            if headAbsPath != "":
+                f = open(headAbsPath)
+                BASE64 = f.read()
+                f.close()
             follow["portrait"] = BASE64
             follow["account"] = obj.followed_account.account
             follows.append(follow)
         return JsonResponse(follows, safe=False)
 
     # 查看他人分享
-    def showOthersShared(self, request, account):
-        account = account
+    # 别人主页不用登录token
+    def show_others_shared(self, request, account):
+        # 查询数据库
         Photo = models.Photo
-        photos = Photo.objects.filter(account = account, public = True)
-
+        photos = Photo.objects.filter(account=account, public=True)
+        # 返回分享信息
         data = []
         for photo in photos:
             dict = {}
@@ -238,7 +198,6 @@ class AppViewSet(viewsets.ModelViewSet):
             f = open(photo_path)
             BASE64 = f.read()
             f.close()
-
             dict["base64"] = BASE64
             dict['content'] = photo.share_info
             dict['photo_id'] = photo.photo_id
@@ -257,33 +216,52 @@ class AppViewSet(viewsets.ModelViewSet):
         return JsonResponse(data, safe=False)
 
     # 关注|取关
-    def followAndUnfollow(self, request):
+    def follow_and_unfollow(self, request):
+        # 读取请求
         account = request.data.get("account")
         account_other = request.data.get("account_other")
-
-
+        try:
+            user = User.objects.get(account=account)
+            user_id = user.user_id
+        # 处理用户不存在的情况
+        except User.DoesNotExist:
+            user = None
+            user_id = "-1"
+        # token认证
+        getToken = request.META.get("HTTP_AUTHORIZATION")
+        try:
+            key = Token.objects.get(user_id=user_id).key
+        except Token.DoesNotExist:
+            key = ""
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+        # 查询数据库
         relation = models.Follow.objects.filter(follower_account=account, followed_account=account_other)
+        # 关注与取关
         Follow = models.Follow()
         if len(relation) == 0:
-            Follow.follower_account = User.objects.get(account = account)
-            Follow.followed_account = User.objects.get(account = account_other)
+            Follow.follower_account = User.objects.get(account=account)
+            Follow.followed_account = User.objects.get(account=account_other)
             Follow.save()
-            return JsonResponse({"status": 1})    # 状态码为1，表示关注成功
+            return JsonResponse({"status": 1})  # 状态码为1，表示关注成功
         elif len(relation) == 1:
             relation.delete()
-            return JsonResponse({"status": 0})    # 状态码为0，表示取关成功
+            return JsonResponse({"status": 0})  # 状态码为0，表示取关成功
         else:
-            return JsonResponse({"status": -1}) # 状态码为-1，表示异常
-
+            return JsonResponse({"status": -1})  # 状态码为-1，表示异常
 
     """
     qyCode
     """
 
     # 随机推送
-    def get_shares(self, request, share_num):
+    def get_shares(self, request, user_id, share_num):
         # 读取数据库
-        shares = Photo.objects.all()
+        user_now = ""
+        # 判断用户是否存在
+        if user_id != "null":
+            user_now = User.objects.get(account=user_id)
+        shares = Photo.objects.filter(public=True)
         # 生成随机序列
         index = [i for i in range(len(shares))]
         random.shuffle(index)
@@ -303,22 +281,42 @@ class AppViewSet(viewsets.ModelViewSet):
             dict['comment_num'] = len(Comments.objects.filter(photo_id=shares[i]))
             dict['favorite_num'] = len(Favorites.objects.filter(photo_id=shares[i]))
             head_path = user.head
-            with open(head_path, "r") as f:
-                dict['portrait'] = f.read()
+            dict['portrait'] = ""
+            if head_path != "":
+                with open(head_path, "r") as f:
+                    dict['portrait'] = f.read()
             dict['nickname'] = user.username
             dict['signature'] = user.sig
-            dict['age'] = user.age
-            dict['gender'] = user.gender
+            dict['age'] = shares[i].age
+            dict['gender'] = shares[i].gender
             dict['expression'] = shares[i].expression
             dict['emotion'] = shares[i].emotion
+            dict['score'] = shares[i].beauty
+            dict['user_id'] = user.user_id
+            # 收藏/取消收藏
+            if len(Favorites.objects.filter(account=user_now, photo_id=shares[i])) != 0:
+                dict['is_favorites'] = True
+            else:
+                dict['is_favorites'] = False
             share_data.append(dict)
         return JsonResponse(share_data, safe=False)
 
     # 得到收藏信息
     def get_favorites(self, request, user_id):
         # 读取数据库
-        user = User.objects.get(account=user_id)
+        try:
+            user = User.objects.get(account=user_id)
+        except:
+            user = None
+        if user is None:  # 如果查询到空
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
         favorites = Favorites.objects.filter(account=user)
+        # token认证
+        getToken = request.META.get("HTTP_AUTHORIZATION")
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
         # 获取数据
         favorites_data = []
         for i in favorites:
@@ -338,12 +336,14 @@ class AppViewSet(viewsets.ModelViewSet):
         return JsonResponse(favorites_data, safe=False)
 
     # 得到详情页
-    def get_share_info(self, request, user_id, photo_id):
+    # 不用登录token
+    def get_share_info(self, request, user_id, photo_id, user_now):
         # 读取数据库
-        user = User.objects.get(account=user_id)
+        user = User.objects.get(user_id=user_id)
         photo = Photo.objects.get(photo_id=photo_id)
         # 获取数据
         dict = {}
+        # 获取图片数据
         photo_path = photo.base64
         with open(photo_path, "r") as f:
             dict['report_picture'] = f.read()
@@ -359,22 +359,55 @@ class AppViewSet(viewsets.ModelViewSet):
         dict['face_form'] = photo.face_shape
         dict['face_height'] = photo.face_height
         dict['face_width'] = photo.face_width
+        dict['comment_num'] = len(Comments.objects.filter(photo_id=photo_id))
+        dict['favorite_num'] = len(Favorites.objects.filter(photo_id=photo_id))
+        if len(Favorites.objects.filter(account=user_now, photo_id=photo_id)) != 0:
+            dict['is_favorites'] = True
+        else:
+            dict['is_favorites'] = False
+        # 获取用户数据
         head_path = user.head
-        with open(head_path, "r") as f:
-            dict['portrait'] = f.read()
+        if head_path != "":
+            with open(head_path, "r") as f:
+                dict['portrait'] = f.read()
         dict['nickname'] = user.username
         dict['signature'] = user.sig
+        # 获取评论信息
+        comments_info = []
+        for comment in Comments.objects.filter(photo_id=photo):
+            comment_info = {}
+            commenter = User.objects.get(account=comment.account_id)
+            head_path = commenter.head
+            if head_path != "":
+                with open(head_path, "r") as f:
+                    comment_info['portrait'] = f.read()
+            comment_info['name'] = commenter.username
+            comment_info['cont'] = comment.comment
+            comments_info.append(comment_info)
+        dict['comments_info'] = comments_info
         return JsonResponse(dict)
 
-    # 收藏
-    def star(self, request):
+    # 收藏|取消收藏
+    def star(self, request, account=""):
         # 读取请求
-        user_id = request.data.get('user_id')
+        account = request.data.get('account', "")
         photo_id = request.data.get('photo_id')
+        # token认证
+        getToken = request.META.get("HTTP_AUTHORIZATION")
+        try:
+            user = User.objects.get(account=account)
+        except:
+            user = None
+        if user is None:  # 如果查询到空
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
         # 查询数据库
         res = {'status': 0, 'msg': ''}
         try:
-            user = User.objects.get(account=user_id)
+            user = User.objects.get(account=account)
         except User.DoesNotExist:
             user = None
         if not user:
@@ -389,22 +422,40 @@ class AppViewSet(viewsets.ModelViewSet):
             res['status'] = 401
             res['msg'] = '图片不存在'
             return JsonResponse(res)
-        # 存入数据库
-        favorite = Favorites()
-        favorite.account = user
-        favorite.photo_id = photo
-        favorite.save()
+        # 查询是否收藏
+        if len(Favorites.objects.filter(account=user, photo_id=photo)) != 0:
+            # 取消收藏
+            Favorites.objects.filter(account=user, photo_id=photo).delete()
+        else:
+            # 收藏并存入数据库
+            favorite = Favorites()
+            favorite.account = user
+            favorite.photo_id = photo
+            favorite.save()
         return JsonResponse(res)
 
+    # 评论
     def comment(self, request):
         # 读取请求
-        user_id = request.data.get('user_id')
+        account = request.data.get('user_id', "")
         photo_id = request.data.get('photo_id')
         comment_text = request.data.get('comment_text')
+        # token认证
+        getToken = request.META.get("HTTP_AUTHORIZATION")
+        try:
+            user = User.objects.get(account=account)
+        except:
+            user = None
+        if user is None:  # 如果查询到空
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
         # 查询数据库
         res = {'status': 0, 'msg': ''}
         try:
-            user = User.objects.get(account=user_id)
+            user = User.objects.get(account=account)
         except User.DoesNotExist:
             user = None
         if not user:
@@ -443,43 +494,21 @@ class AppViewSet(viewsets.ModelViewSet):
         cities = request.data.get('cities')  # 获取城市
         age = request.data.get('age')  # 获取年龄
         qq = request.data.get('qq')  # 获取qq
-        # sig = request.data.get('signature')  # 获取个性签名
         sig = request.data.get('sig')  # 获取个性签名
         email = request.data.get('email')  # 获取邮箱
-        # head64 = request.data.get('portrait')  # 获取头像的base64编码
-        head64 = request.data.get('head')  # 获取头像的base64编码
-
-        # 接下来将编码写入一个txt文件中
-        # basepath = os.path.join(            # 文件保存目录
-        #     os.getcwd(),
-        #     'static/files/base64TXT/head'
-        # )
-
-        basepath = 'app/static/files/base64TXT/head'
-        if not os.path.exists(basepath):  # 如果目录不存在则创建
-            os.mkdir(basepath)
-        uname = str(uuid.uuid1()) + '.txt'  # 产生唯一的文件名
-        # 文件的路径
-        baseapath = basepath + os.sep + uname
-        if head64 is not None:
-            # 写txt文件
-            with open(baseapath, 'w+') as ff:
-                ff.write(head64)
-
         # 生成一个新的user
         auu = au.objects.create_user(username=account, password=password)
         user = User(
             user_id=auu.id,
             account=account,
             username=username,
-            password=password,
+            password=password,  # 不要存
             gender=gender,
             cities=cities,
             age=age,
             qq=qq,
             sig=sig,
             email=email,
-            head=baseapath
         )
         # 将新的user保存到User表中
         user.save()
@@ -489,7 +518,6 @@ class AppViewSet(viewsets.ModelViewSet):
     # 登录
     def login(self, request):
         # 先获取前台传来的登录信息
-
         account = request.data.get('account')
         password = request.data.get('password')
         res = {'status': 0, 'msg': ''}
@@ -504,30 +532,108 @@ class AppViewSet(viewsets.ModelViewSet):
         else:
             res['status'] = 401
             res['msg'] = '用户名或密码错误，请重试'
-
-        # 删除原有的Token
-        old_token = Token.objects.filter(user=user)
-        old_token.delete()
+            return JsonResponse(res)
         # 创建新的Token
+        # 如果已经登录，删除原有的token
+        if Token.objects.filter(user=user).count() > 0:
+            Token.objects.filter(user=user).delete()
         token = Token.objects.create(user=user)
         res['token'] = token.key
-
         return JsonResponse(res)
 
+    # 是否登录
+    def check_login(self, request, account):
+        getToken = request.META.get("HTTP_AUTHORIZATION")
+        user = User.objects.get(account=account)
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+        res = dict()
 
-    # 安全退出
+        if getToken == key:
+            res['status'] = 200
+            res['msg'] = "已经登录"
+        else:
+            res['status'] = 405
+            res['msg'] = "未登录"
+        return res
+
+    # 登出
     def logout(self, request):
+        account = request.data.get('account')
         res = {'status': 200}
         # 清除session中的登录信息
         logout(request)
+        # 删除token
+        user = User.objects.get(account=account)
+        old_token = Token.objects.filter(user_id=user.user_id)
+        old_token.delete()
         return JsonResponse(res)
+
+    # 得到他人信息
+    def get_other_info(self, request, user_id):
+        account_login = request.GET.get('account_login')
+        data = dict()  # 存放个人信息用于返回
+        # token认证
+        getToken = request.META.get("HTTP_AUTHORIZATION")
+        login = True
+        try:
+            user = User.objects.get(account=account_login)  # 如果登录
+            user_login_id = user.user_id
+        except User.DoesNotExist:
+            user_login_id = "-1"
+            user = None
+        if user is None:  # 如果查询到空
+            login = False  # 表示没有登录
+        # 此页面的用户
+        try:
+            key = Token.objects.get(user_id=user_login_id).key
+        except Token.DoesNotExist:
+            key = ""
+        if getToken != key:
+            login = False  # 表示不合法登录
+
+        me = User.objects.get(user_id=user_id)
+        # 返回数据
+        data['account'] = me.account
+        data['nickname'] = me.username
+        data['signature'] = me.sig
+        data['gender'] = me.gender
+        data['email'] = me.email
+        data['QQ'] = "请登录查看"
+        data['age'] = "请登录查看"
+        if login:
+            data['QQ'] = me.qq
+            data['age'] = me.age
+
+        data['city'] = me.cities
+        # 获取头像的base64编码
+        data['portrait'] = ""
+        if me.head != "":
+            with open(me.head, 'r+') as f:
+                portrait = f.read()
+            data['portrait'] = portrait
+
+        return JsonResponse(data)  # 响应到前台
 
     # 获取我的个人信息
     def get_my_info(self, request):
-        account = request.data.get('account')  # 首先获取当前登录用户的账号
+        # 读取请求
+        account = request.data.get('account', "")  # 首先获取当前登录用户的账号
         me = User.objects.get(account=account)  # 在数据库中查询该用户
         data = dict()  # 存放个人信息用于返回
-
+        # token认证
+        getToken = request.META.get("HTTP_AUTHORIZATION")
+        try:
+            user = User.objects.get(account=account)
+        except:
+            user = None
+        if user is None:  # 如果查询到空
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+        # 返回数据
         data['nickname'] = me.username
         data['signature'] = me.sig
         data['gender'] = me.gender
@@ -535,14 +641,212 @@ class AppViewSet(viewsets.ModelViewSet):
         data['QQ'] = me.qq
         data['city'] = me.cities
         data['age'] = me.age
-
         # 获取头像的base64编码
-        with open(me.head, 'r+') as f:
-            portrait = f.read()
-        data['portrait'] = portrait
-
+        data['portrait'] = ""
+        if me.head != "" and me.head is not None:
+            with open(me.head, 'r+') as f:
+                portrait = f.read()
+            data['portrait'] = portrait
         # 查询所有关注了该用户的记录并统计数量
+        fans = Follow.objects.filter(followed_account=me)
+        fan_num = len(fans)
+        data['fan_num'] = fan_num
+        # 查询该用户所有的关注记录并统计数量
+        follows = Follow.objects.filter(follower_account=me)
+        follow_num = len(follows)
+        data['follow_num'] = follow_num
+        # 查询该用户所有的收藏并统计数量
+        favs = Favorites.objects.filter(account=me)
+        collect_num = len(favs)
+        data['collect_num'] = collect_num
+        return JsonResponse(data)  # 响应到前台
 
+    # 更新我的个人信息
+    def update_my_info(self, request):
+        # 读取请求
+        account = request.data.get('account', "")  # 获取当前登录用户的账号
+        nickname = request.data.get('nickname')  # 获取昵称（用户名）
+        signature = request.data.get('signature')  # 获取个性签名
+        email = request.data.get('email')  # 获取email
+        QQ = request.data.get('QQ')  # 获取qq
+        city = request.data.get('city')  # 获取城市
+
+        # token认证
+        getToken = request.META.get("HTTP_AUTHORIZATION")
+        try:
+            user = User.objects.get(account=account)
+        except:
+            user = None
+        if user is None:  # 如果查询到空
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+
+        # 更新该用户的信息
+        User.objects.filter(account=account).update(
+            username=nickname,
+            sig=signature,
+            email=email,
+            qq=QQ,
+            cities=city,
+        )
+        return JsonResponse({'status': 200})
+
+    # 获取头像
+    def get_my_portrait(self, request, account):
+        try:
+            me = User.objects.get(account=account)
+        except:
+            me = None
+        if me is None:  # 如果查询到空
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+        # token认证
+        getToken = request.META.get("HTTP_AUTHORIZATION")
+
+        user_id = me.user_id
+        key = Token.objects.get(user_id=user_id).key
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+
+        data = dict()  # 存放个人信息用于返回
+        # 获取头像的base64编码
+        if me.head is not None and me.head != '':
+            with open(me.head, 'r+') as f:
+                portrait = f.read()
+        else:
+            portrait = None
+        data['portrait'] = portrait
+        return JsonResponse(data)
+
+    # 更新头像
+    def update_my_portrait(self, request):
+        account = request.data.get('account', "")  # 首先获取当前登录用户的账号
+
+        # token认证
+        getToken = request.META.get("HTTP_AUTHORIZATION")
+        try:
+            user = User.objects.get(account=account)
+        except:
+            user = None
+        if user is None:  # 如果查询到空
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+        account = request.data.get("account")
+        b64 = request.data.get('portrait')  # 获取头像文件的base64编码
+        basepath = self.update_head_help(b64)
+        # 更新该用户的信息
+        User.objects.filter(account=account).update(
+            head=basepath
+        )
+        res = {"status": 200}
+        return JsonResponse(res)
+
+    # 保存头像并返回地址
+    def update_head_help(self, b64):
+        basepath = 'app/static/files/base64TXT/head'
+        if not os.path.exists(basepath):  # 如果目录不存在则创建
+            os.mkdir(basepath)
+        uname = str(uuid.uuid1()) + '.txt'  # 产生唯一的文件名
+        # 文件的绝对路径
+        baseapath = basepath + os.sep + uname
+        # 写txt文件
+        with open(baseapath, 'w+') as ff:
+            ff.write(b64)
+        return baseapath
+
+    # 不登录的话只能看到公开的，不能看到私有的
+    def get_shared_by_account(self, request, account):
+        public = True
+        # 得到Token
+        getToken = request.META.get("HTTP_AUTHORIZATION")
+        try:
+            user_login = User.objects.get(account=account)
+        except:
+            user_login = None
+        if user_login is None:  # 如果查询到空
+            user_login = False
+        user_id = user_login.user_id
+        # 处理用户不存在
+        try:
+            key = Token.objects.get(user_id=user_id).key
+        except Token.DoesNotExist:
+            key = ""
+        # Token验证
+        if getToken != key:
+            public = False
+        user = User.objects.get(account=account)
+        share_data = []
+        if public:  # 如果是用户自己查看自己的
+            photo_list = Photo.objects.filter(account_id=account).order_by('-date')
+        else:
+            photo_list = Photo.objects.filter(account_id=account, public=True).order_by('-date')
+        single_num = int(request.GET.get("each"))
+        page_num = int(request.GET.get("page"))
+        paginator = Paginator(photo_list, single_num)
+        photos = paginator.page(page_num)
+
+        # 获取数据
+        for i in range(single_num):
+            if i >= len(photos):
+                break
+            dict = {}
+            photo_path = photos[i].base64
+            with open(photo_path, "r+") as f:
+                dict['report_picture'] = f.read()
+            user = User.objects.get(account=photos[i].account.account)
+            dict['photo_id'] = photos[i].photo_id
+
+            dict['report_name'] = user.username
+            dict['report_time'] = photos[i].date
+            dict['report_text'] = photos[i].share_info
+            dict['total_num'] = paginator.num_pages
+            share_data.append(dict)
+        return JsonResponse(share_data, safe=False)
+
+    # 删除照片
+    def delete_photo(self, request, photo_id):
+        account = request.data.get('account', "")  # 首先获取当前登录用户的账号
+        # token认证
+        getToken = request.META.get("HTTP_AUTHORIZATION")
+        try:
+            user = User.objects.get(account=account)
+        except:
+            user = None
+        if user is None:  # 如果查询到空
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+        Photo.objects.filter(photo_id=photo_id).delete()
+        res = dict()
+        res['status'] = 200
+        res['msg'] = 'ok'
+        return JsonResponse(res)
+
+    # 获取收藏夹
+    def get_fan_follow_collect(self, request, account):
+        # token认证
+        getToken = request.META.get("HTTP_AUTHORIZATION")
+        try:
+            user = User.objects.get(account=account)
+        except:
+            user = None
+        if user is None:  # 如果查询到空
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+        user_id = user.user_id
+        key = Token.objects.get(user_id=user_id).key
+        if getToken != key:
+            return JsonResponse({'status': 405, 'msg': "token验证失败"})
+
+        me = User.objects.get(account=account)  # 在数据库中查询该用户
+        data = dict()  # 存放个人信息用于返回
+        # 查询所有关注了该用户的记录并统计数量
         fans = Follow.objects.filter(followed_account=me)
         fan_num = len(fans)
         data['fan_num'] = fan_num
@@ -559,67 +863,6 @@ class AppViewSet(viewsets.ModelViewSet):
 
         return JsonResponse(data)  # 响应到前台
 
-    # 更新我的个人信息
-    def update_my_info(self, request):
-        account = request.data.get('account')  # 获取当前登录用户的账号
-        nickname = request.data.get('nickname')  # 获取昵称（用户名）
-        signature = request.data.get('signature')  # 获取个性签名
-        # gender = request.data.get('gender')  # 获取性别
-        email = request.data.get('email')  # 获取email
-        QQ = request.data.get('QQ')  # 获取qq
-        city = request.data.get('city')  # 获取城市
-        # age = request.data.get('age')
-        b64 = request.data.get('portrait')  # 获取头像文件的base64编码
-
-        # 接下来将编码写入一个txt文件中
-        # basepath = os.path.join(            # 文件保存目录
-        #     os.getcwd(),
-        #     'static/files/base64TXT/head'
-        # )
-        basepath = 'app/static/files/base64TXT/head'
-        if not os.path.exists(basepath):  # 如果目录不存在则创建
-            os.mkdir(basepath)
-        uname = str(uuid.uuid1()) + '.txt'  # 产生唯一的文件名
-        # 文件的绝对路径
-        baseapath = basepath + os.sep + uname
-        # 写txt文件
-        with open(baseapath, 'w+') as ff:
-            ff.write(b64)
-
-        # 更新该用户的信息
-        User.objects.filter(account=account).update(
-            head=baseapath,
-            username=nickname,
-            sig=signature,
-            # gender=gender,
-            email=email,
-            qq=QQ,
-            cities=city,
-            # age=age
-        )
-        return JsonResponse({'status': 200})
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    # 得到用户ID
+    def get_user_id(self, request, account):
+        return JsonResponse({'user_id': User.objects.get(account=account).user_id})
